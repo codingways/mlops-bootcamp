@@ -1,0 +1,43 @@
+name: CI
+
+on: [push]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install apache-airflow pylint pylint-airflow flake8 black isort
+
+    - name: Format with Black
+      run: |
+        black dags/
+
+    - name: Lint DAGs with pylint
+      run: |
+        pylint --load-plugins=pylint_airflow dags/*.py
+
+    - name: Lint with flake8
+      run: |
+        flake8 dags/
+
+    - name: Check DAG integrity
+      run: |
+        for dag_file in dags/*.py; do
+          python -c "from airflow.models import DagBag; db = DagBag(dag_folder='dags', include_examples=False); assert len(db.import_errors) == 0, db.import_errors"
+        done
+
+    - name: Check import order with isort
+      run: |
+        isort --check-only --diff dags/
