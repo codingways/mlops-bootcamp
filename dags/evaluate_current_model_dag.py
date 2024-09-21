@@ -6,7 +6,7 @@ from datetime import timedelta
 import mlflow
 import pandas as pd
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator
+from airflow.operators.python import PythonOperator
 from config import (
     AWS_S3_BUCKET,
     MLFLOW_TRACKING_PASSWORD,

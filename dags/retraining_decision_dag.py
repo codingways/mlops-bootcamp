@@ -4,8 +4,8 @@ from datetime import timedelta
 
 import mlflow
 from airflow import DAG
-from airflow.operators.dummy_operator import DummyOperator
-from airflow.operators.python_operator import BranchPythonOperator
+from airflow.operators.empty import EmptyOperator
+from airflow.operators.python import BranchPythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from config import (
     MLFLOW_TRACKING_PASSWORD,
@@ -70,7 +70,7 @@ trigger_retraining = TriggerDagRunOperator(
     dag=dag_decide,
 )
 
-skip_retraining = DummyOperator(task_id="skip_retraining", dag=dag_decide)
+skip_retraining = EmptyOperator(task_id="skip_retraining", dag=dag_decide)
 
 decision_task >> [trigger_retraining, skip_retraining]
 

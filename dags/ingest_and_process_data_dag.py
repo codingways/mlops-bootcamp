@@ -6,8 +6,8 @@ from datetime import timedelta
 import mlflow
 import pandas as pd
 from airflow import DAG
-from airflow.operators.dummy_operator import DummyOperator
-from airflow.operators.python_operator import BranchPythonOperator, PythonOperator
+from airflow.operators.empty import EmptyOperator
+from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from config import AWS_S3_BUCKET, MODEL_NAME, MODEL_STAGE, default_args
 from utils.ml_helpers import check_data_drift, generate_sample_data
@@ -103,7 +103,7 @@ trigger_model_training = TriggerDagRunOperator(
     dag=dag_ingest_process,
 )
 
-skip_model_training = DummyOperator(
+skip_model_training = EmptyOperator(
     task_id="skip_model_training", dag=dag_ingest_process
 )
 
