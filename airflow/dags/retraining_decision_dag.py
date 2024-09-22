@@ -1,18 +1,13 @@
 import logging
-import os
 from datetime import timedelta
 
 import mlflow
-from airflow import DAG
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import BranchPythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from config import (
-    MLFLOW_TRACKING_PASSWORD,
-    MLFLOW_TRACKING_URI,
-    MLFLOW_TRACKING_USERNAME,
-    default_args,
-)
+from config import MLFLOW_TRACKING_URI, default_args
+
+from airflow import DAG
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -20,8 +15,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-os.environ["MLFLOW_TRACKING_USERNAME"] = MLFLOW_TRACKING_USERNAME
-os.environ["MLFLOW_TRACKING_PASSWORD"] = MLFLOW_TRACKING_PASSWORD
 
 
 def decide_retraining(**kwargs):
@@ -53,7 +46,7 @@ dag_decide = DAG(
     "retraining_decision",
     default_args=default_args,
     description="Decide whether to retrain",
-    schedule_interval=timedelta(minutes=7),
+    schedule_interval=timedelta(days=7),
     catchup=False,
 )
 

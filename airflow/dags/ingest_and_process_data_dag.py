@@ -5,13 +5,14 @@ from datetime import timedelta
 
 import mlflow
 import pandas as pd
-from airflow import DAG
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from config import AWS_S3_BUCKET, MODEL_NAME, MODEL_STAGE, default_args
 from utils.ml_helpers import check_data_drift, generate_sample_data
 from utils.s3_helpers import load_data_from_s3, save_data_to_s3
+
+from airflow import DAG
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -63,7 +64,7 @@ def ingest_and_process_data(**kwargs):
 
 def check_model_exists():
     try:
-        mlflow.xgboost.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
+        mlflow.prophet.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
         return True
     except mlflow.exceptions.MlflowException as e:
         logger.error(f"Error checking model existence: {str(e)}")
@@ -80,7 +81,7 @@ dag_ingest_process = DAG(
     "ingest_and_process_data",
     default_args=default_args,
     description="Ingest and process daily data",
-    schedule_interval=timedelta(minutes=1),
+    schedule_interval=timedelta(days=1),
     catchup=False,
 )
 

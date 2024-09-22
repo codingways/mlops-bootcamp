@@ -1,17 +1,13 @@
 import io
 import logging
-import os
 
 import mlflow
 import numpy as np
 import pandas as pd
-from airflow import DAG
 from airflow.operators.python import PythonOperator
 from config import (
     AWS_S3_BUCKET,
-    MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_URI,
-    MLFLOW_TRACKING_USERNAME,
     MODEL_NAME,
     MODEL_STAGE,
     default_args,
@@ -20,6 +16,8 @@ from mlflow.exceptions import MlflowException
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from utils.s3_helpers import load_data_from_s3
+
+from airflow import DAG
 
 np.float_ = np.float64
 from prophet import Prophet  # noqa: E402
@@ -30,8 +28,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-os.environ["MLFLOW_TRACKING_USERNAME"] = MLFLOW_TRACKING_USERNAME
-os.environ["MLFLOW_TRACKING_PASSWORD"] = MLFLOW_TRACKING_PASSWORD
 
 
 def retrain_and_deploy(**kwargs):
@@ -60,13 +56,10 @@ def retrain_and_deploy(**kwargs):
             model.fit(train_data)
 
             # Evaluate
-            future = model.make_future_dataframe(periods=len(test_data))
-            print(f"Length of future: {len(future)}")
-            print(f"Length of test_data: {len(test_data)}")
-            print(f"Length of test_data['truck_id']: {len(test_data['truck_id'])}")
+            future = test_data[["ds"]].copy()  # Usar las fechas de test_data
             future["truck_id"] = test_data["truck_id"].values
             forecast = model.predict(future)
-            y_pred = forecast.tail(len(test_data))["yhat"]
+            y_pred = forecast["yhat"]
             y_true = test_data["y"]
 
             mse = mean_squared_error(y_true, y_pred)

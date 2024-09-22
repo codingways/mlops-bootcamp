@@ -1,11 +1,13 @@
 import boto3
-from config import AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY
+from config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, MINIO_ENDPOINT
 
 s3 = boto3.client(
     "s3",
+    endpoint_url=MINIO_ENDPOINT,
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_REGION,
+    config=boto3.session.Config(signature_version="s3v4"),
+    region_name="us-east-1",
 )
 
 
