@@ -11,6 +11,7 @@ from config import (
     MODEL_STAGE,
     default_args,
 )
+from mlflow.xgboost import load_model
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sqlalchemy import create_engine
@@ -29,7 +30,7 @@ mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 def evaluate_current_model(**kwargs):
     try:
         mlflow.set_experiment("Model Evaluation")
-        current_model = mlflow.xgboost.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
+        current_model = load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
 
         engine = create_engine(DATA_DATABASE_URL)
         with engine.connect() as conn:

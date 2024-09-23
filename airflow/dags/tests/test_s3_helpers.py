@@ -1,14 +1,13 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from dags.utils.s3_helpers import load_data_from_s3, save_data_to_s3
+from utils.s3_helpers import load_data_from_s3, save_data_to_s3
 
 
 @pytest.fixture
 def mock_s3_client():
-    with patch("dags.utils.s3_helpers.s3") as mock_s3:
-        yield mock_s3
+    with patch("utils.s3_helpers.s3") as mock:
+        yield mock
 
 
 def test_load_data_from_s3(mock_s3_client):

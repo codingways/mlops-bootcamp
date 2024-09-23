@@ -88,6 +88,10 @@ x-airflow-common:
       condition: service_healthy
     data-db:
       condition: service_healthy
+    mlflow:
+      condition: service_healthy
+    minio:
+      condition: service_healthy
 
 services:
   data-db:
@@ -331,6 +335,11 @@ services:
       - AWS_SECRET_ACCESS_KEY=miniopass2024
       - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
       - MLFLOW_S3_IGNORE_TLS=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
     command: >
       mlflow server 
       --host 0.0.0.0 
@@ -369,7 +378,7 @@ services:
 
   predictions-api:
     build:
-      context: ./api
+      context: ./predictions_api
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
@@ -380,6 +389,20 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  predictions-api-consumer:
+    build:
+      context: ./predictions_api_consumer
+      dockerfile: Dockerfile
+    ports:
+      - "8001:80"
+    depends_on:
+      - predictions-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
       interval: 30s
       timeout: 20s
       retries: 3

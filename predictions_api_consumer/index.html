@@ -35,7 +35,7 @@
 </head>
 <body>
     <div id="app">
-        <h1>Predicciones de Peso de Camiones</h1>
+        <h1>Predicciones de Peso de Camiones - Siguientes 30 días</h1>
         <div id="chart-container">
             <canvas id="myChart"></canvas>
         </div>
@@ -94,13 +94,6 @@
                             responsive: true,
                             maintainAspectRatio: false,
                             plugins: {
-                                title: {
-                                    display: true,
-                                    text: 'Predicciones de Peso para Todos los Camiones',
-                                    font: {
-                                        size: 18
-                                    }
-                                },
                                 tooltip: {
                                     callbacks: {
                                         title: (tooltipItems) => {

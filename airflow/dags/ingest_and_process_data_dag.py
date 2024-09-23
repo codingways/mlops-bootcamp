@@ -6,7 +6,14 @@ import pandas as pd
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from config import DATA_DATABASE_URL, MODEL_NAME, MODEL_STAGE, default_args
+from config import (
+    DATA_DATABASE_URL,
+    MLFLOW_TRACKING_URI,
+    MODEL_NAME,
+    MODEL_STAGE,
+    default_args,
+)
+from mlflow.xgboost import load_model
 from sqlalchemy import create_engine
 from utils.ml_helpers import check_data_drift, generate_sample_data
 
@@ -17,6 +24,8 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 
 def postgres_upsert(table, conn, keys, data_iter):
@@ -42,12 +51,11 @@ def ingest_and_process_data(**kwargs):
         with engine.connect() as conn:
             db_data = pd.read_sql("SELECT * FROM raw_data", conn)
 
-        db_data.drop(columns=["id"], inplace=True)
-
         if db_data.empty:
             logger.info("Initializing historical data")
             new_data = generate_sample_data(num_days=365)
         else:
+            db_data.drop(columns=["id"], inplace=True)
             day_data = generate_sample_data()
             drift_detected, drift_report = check_data_drift(day_data, db_data)
             if drift_detected:
@@ -81,7 +89,7 @@ def ingest_and_process_data(**kwargs):
 
 def check_model_exists():
     try:
-        mlflow.xgboost.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
+        load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
         return True
     except mlflow.exceptions.MlflowException as e:
         logger.error(f"Error checking model existence: {str(e)}")

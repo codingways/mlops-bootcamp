@@ -15,23 +15,30 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-        airflow db migrate
+    # - name: Install dependencies
+    #   run: |
+    #     pip install -r requirements.txt
+    #     pip install apache-airflow
 
     - name: Format with Black
       run: |
-        black dags/
+        black airflow/dags/ predictions_api/
 
     - name: Lint with flake8
       run: |
-        flake8 dags/
+        flake8 airflow/dags/ predictions_api/
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libldap2-dev libsasl2-dev
 
     - name: Check DAG integrity
       run: |
-        PYTHONPATH=$PYTHONPATH:${{ github.workspace }}/dags python -c "from airflow.models import DagBag; db = DagBag(dag_folder='dags', include_examples=False); assert len(db.import_errors) == 0, db.import_errors"
-
-    # - name: Check import order with isort
-    #   run: |
-    #     isort --check-only --diff dags/
+        pip install -r airflow/requirements.txt
+        PYTHONPATH=$PYTHONPATH:${{ github.workspace }}/airflow/dags python -c "from airflow.models import DagBag; import os; dag_folder = os.path.join(os.getcwd(), 'airflow', 'dags'); db = DagBag(dag_folder=dag_folder, include_examples=False); assert len(db.import_errors) == 0, db.import_errors"
+        
+    - name: Run pytest
+      run: |
+        pip install pytest
+        pytest

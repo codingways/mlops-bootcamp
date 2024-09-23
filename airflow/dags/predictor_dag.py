@@ -10,19 +10,17 @@ from config import (
     MODEL_STAGE,
     default_args,
 )
+from mlflow.xgboost import load_model
 from sqlalchemy import create_engine
 
 import mlflow
 from airflow import DAG
 
-print(f"DATA_DATABASE_URL: {DATA_DATABASE_URL}")
-# Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-# Set MLflow tracking URI
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 
@@ -46,7 +44,7 @@ def postgres_upsert(table, conn, keys, data_iter):
 def generate_future_predictions(**kwargs):
     try:
         # Load the current model from MLflow
-        current_model = mlflow.xgboost.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
+        current_model = load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
 
         # Load accumulated data from PostgreSQL
         engine = create_engine(DATA_DATABASE_URL)
