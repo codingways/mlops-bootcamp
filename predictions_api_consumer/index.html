@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predicciones de Peso de Camiones</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/locale/es/index.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        #app {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        #chart-container {
+            position: relative;
+            height: 600px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>Predicciones de Peso de Camiones</h1>
+        <div id="chart-container">
+            <canvas id="myChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, watch, onMounted } = Vue
+
+        createApp({
+            setup() {
+                const predictions = ref([])
+                const chart = ref(null)
+
+                const fetchPredictions = async () => {
+                    try {
+                        const response = await fetch('http://localhost:8000/predictions')
+                        const data = await response.json()
+                        predictions.value = data
+                    } catch (error) {
+                        console.error('Error fetching predictions:', error)
+                    }
+                }
+
+                const truckIds = computed(() => {
+                    return [...new Set(predictions.value.map(p => p.truck_id))]
+                })
+
+                const getRandomColor = () => {
+                    const r = Math.floor(Math.random() * 255)
+                    const g = Math.floor(Math.random() * 255)
+                    const b = Math.floor(Math.random() * 255)
+                    return `rgb(${r}, ${g}, ${b})`
+                }
+
+                const updateChart = () => {
+                    if (chart.value) {
+                        chart.value.destroy()
+                    }
+
+                    const ctx = document.getElementById('myChart')
+                    const datasets = truckIds.value.map(truckId => ({
+                        label: `Camión ${truckId}`,
+                        data: predictions.value
+                            .filter(p => p.truck_id === truckId)
+                            .map(p => ({ x: new Date(p.date), y: p.predicted_weight })),
+                        borderColor: getRandomColor(),
+                        backgroundColor: 'transparent',
+                        tension: 0.1,
+                        fill: false
+                    }))
+
+                    chart.value = new Chart(ctx, {
+                        type: 'line',
+                        data: { datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: 'Predicciones de Peso para Todos los Camiones',
+                                    font: {
+                                        size: 18
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        title: (tooltipItems) => {
+                                            return new Date(tooltipItems[0].raw.x).toLocaleDateString('es-ES', {
+                                                weekday: 'long',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
+                                            })
+                                        },
+                                        label: (context) => {
+                                            return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} Kgs`
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        unit: 'day',
+                                        displayFormats: {
+                                            day: 'EEE dd/MM'
+                                        }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Día',
+                                        font: {
+                                            size: 14,
+                                            weight: 'bold'
+                                        }
+                                    },
+                                    ticks: {
+                                        maxRotation: 45,
+                                        minRotation: 45
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Peso (Kgs)',
+                                        font: {
+                                            size: 14,
+                                            weight: 'bold'
+                                        }
+                                    },
+                                    beginAtZero: false,
+                                }
+                            }
+                        }
+                    })
+                }
+
+                onMounted(() => {
+                    fetchPredictions()
+                })
+
+                watch(predictions, () => {
+                    if (predictions.value.length > 0) {
+                        updateChart()
+                    }
+                })
+
+                return {}
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
