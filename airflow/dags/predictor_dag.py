@@ -45,44 +45,36 @@ def postgres_upsert(table, conn, keys, data_iter):
 
 def generate_future_predictions(**kwargs):
     try:
-        # Load the current model
-        current_model = mlflow.prophet.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
+        # Load the current model from MLflow
+        current_model = mlflow.xgboost.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
 
         # Load accumulated data from PostgreSQL
         engine = create_engine(DATA_DATABASE_URL)
         with engine.connect() as conn:
             accumulated_data = pd.read_sql("SELECT * FROM raw_data", conn)
 
-        # Prepare data for Prophet
-        accumulated_data["ds"] = pd.to_datetime(accumulated_data["date"])
-        accumulated_data["y"] = accumulated_data["total_weight"]
-
         # Create future dataframe for prediction (next 30 days)
-        last_date = accumulated_data["ds"].max()
+        last_date = pd.to_datetime(accumulated_data["date"]).max()
         future_dates = pd.date_range(start=last_date + timedelta(days=1), periods=30)
 
         # Add truck_id to future_df (assuming we want predictions for all trucks)
         truck_ids = accumulated_data["truck_id"].unique()
         future_df = pd.DataFrame(
             [(date, truck_id) for date in future_dates for truck_id in truck_ids],
-            columns=["ds", "truck_id"],
+            columns=["date", "truck_id"],
         )
 
-        # Make predictions
-        forecast = current_model.predict(future_df)
+        # Add additional features to future_df
+        future_df["day_of_week"] = future_df["date"].dt.dayofweek
+        future_df["month"] = future_df["date"].dt.month
+        future_df["day_of_year"] = future_df["date"].dt.dayofyear
 
-        # Add truck_id to the forecast
-        forecast["truck_id"] = future_df["truck_id"].values
+        # Make predictions
+        X_future = future_df[["truck_id", "day_of_week", "month", "day_of_year"]]
+        future_df["predicted_weight"] = current_model.predict(X_future)
 
         # Select relevant columns and rename
-        predictions = forecast[["ds", "truck_id", "yhat", "yhat_lower", "yhat_upper"]]
-        predictions.columns = [
-            "date",
-            "truck_id",
-            "predicted_weight",
-            "lower_bound",
-            "upper_bound",
-        ]
+        predictions = future_df[["date", "truck_id", "predicted_weight"]]
 
         # Connect to the database and insert predictions
         with engine.connect() as conn:

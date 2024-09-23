@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+import xgboost as xgb
 from airflow.operators.python import PythonOperator
 from config import (
     DATA_DATABASE_URL,
@@ -18,9 +19,6 @@ from sqlalchemy import create_engine
 import mlflow
 from airflow import DAG
 
-np.float_ = np.float64
-from prophet import Prophet  # noqa: E402
-
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
@@ -35,36 +33,25 @@ def retrain_and_deploy(**kwargs):
         with engine.connect() as conn:
             db_data = pd.read_sql("SELECT * FROM raw_data", conn)
 
-        # Prepare data for Prophet
-        db_data["ds"] = pd.to_datetime(db_data["date"])
-        db_data["y"] = db_data["total_weight"]
-        prophet_data = db_data[["ds", "y", "truck_id"]]
-
-        # Split data
-        train_data, test_data = train_test_split(
-            prophet_data, test_size=0.2, random_state=42
+        X = db_data[["truck_id", "day_of_week", "month", "day_of_year"]]
+        y = db_data["total_weight"]
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
         )
-
         experiment_name = "Model Retraining and Deployment"
         mlflow.set_experiment(experiment_name)
 
         with mlflow.start_run():
             # Training
-            model = Prophet()
-            model.add_regressor("truck_id")
-            model.fit(train_data)
+            xgb_model = xgb.XGBRegressor(objective="reg:squarederror", random_state=42)
+            xgb_model.fit(X_train, y_train)
 
             # Evaluate
-            future = test_data[["ds"]].copy()  # Use dates from test_data
-            future["truck_id"] = test_data["truck_id"].values
-            forecast = model.predict(future)
-            y_pred = forecast["yhat"]
-            y_true = test_data["y"]
-
-            mse = mean_squared_error(y_true, y_pred)
+            y_pred = xgb_model.predict(X_test)
+            mse = mean_squared_error(y_test, y_pred)
             rmse = np.sqrt(mse)
-            mae = mean_absolute_error(y_true, y_pred)
-            r2 = r2_score(y_true, y_pred)
+            mae = mean_absolute_error(y_test, y_pred)
+            r2 = r2_score(y_test, y_pred)
 
             mlflow.log_metrics({"mse": mse, "r2": r2, "rmse": rmse, "mae": mae})
 
@@ -78,7 +65,9 @@ def retrain_and_deploy(**kwargs):
 
             # Infer model signature
             # Register the model with signature and input example
-            mlflow.prophet.log_model(model, "model", registered_model_name=MODEL_NAME)
+            mlflow.xgboost.log_model(
+                xgb_model, "model", registered_model_name=MODEL_NAME
+            )
 
             # Create new model version
             new_model_version = client.create_model_version(

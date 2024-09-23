@@ -97,6 +97,9 @@ def generate_sample_data(num_days=1, trucks=10):
                     "date": current_date.date(),
                     "truck_id": truck_id,
                     "total_weight": total_weight,
+                    "day_of_week": day_of_week,
+                    "month": month,
+                    "day_of_year": day_of_year,
                 }
             )
 

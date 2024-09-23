@@ -81,7 +81,7 @@ def ingest_and_process_data(**kwargs):
 
 def check_model_exists():
     try:
-        mlflow.prophet.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
+        mlflow.xgboost.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
         return True
     except mlflow.exceptions.MlflowException as e:
         logger.error(f"Error checking model existence: {str(e)}")

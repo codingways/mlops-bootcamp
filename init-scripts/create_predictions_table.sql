@@ -3,8 +3,6 @@ CREATE TABLE IF NOT EXISTS predictions (
     date DATE,
     truck_id INTEGER,
     predicted_weight FLOAT,
-    lower_bound FLOAT,
-    upper_bound FLOAT,
     UNIQUE (truck_id, date)  -- Agregar restricción de clave única
 );
 

@@ -3,6 +3,9 @@ CREATE TABLE IF NOT EXISTS raw_data (
     date DATE,
     truck_id INTEGER,
     total_weight FLOAT,
+    day_of_week INTEGER,
+    month INTEGER,
+    day_of_year INTEGER,
     UNIQUE (truck_id, date)  -- Agregar restricción de clave única
 );
 

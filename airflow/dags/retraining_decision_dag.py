@@ -1,12 +1,12 @@
 import logging
 from datetime import timedelta
 
-import mlflow
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import BranchPythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from config import MLFLOW_TRACKING_URI, default_args
 
+import mlflow
 from airflow import DAG
 
 logging.basicConfig(
@@ -25,7 +25,7 @@ def decide_retraining(**kwargs):
             experiment_ids=[
                 mlflow.get_experiment_by_name(experiment_name).experiment_id
             ],
-            filter_string="metrics.daily_r2 < 0.8",
+            filter_string="metrics.daily_r2 < 0.9",
             order_by=["attributes.start_time DESC"],
             max_results=7,
         )

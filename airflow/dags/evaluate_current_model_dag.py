@@ -11,13 +11,12 @@ from config import (
     MODEL_STAGE,
     default_args,
 )
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
 from sqlalchemy import create_engine
 
 import mlflow
 from airflow import DAG
-
-np.float_ = np.float64
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -30,39 +29,38 @@ mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 def evaluate_current_model(**kwargs):
     try:
         mlflow.set_experiment("Model Evaluation")
-        current_model = mlflow.prophet.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
+        current_model = mlflow.xgboost.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
 
         engine = create_engine(DATA_DATABASE_URL)
         with engine.connect() as conn:
-            query = "SELECT * FROM raw_data ORDER BY date DESC LIMIT 300"
-            accumulated_data = pd.read_sql(query, conn)
+            db_data = pd.read_sql("SELECT * FROM raw_data", conn)
 
-        # Prepare data for Prophet
-        recent_data = accumulated_data.iloc[
-            ::-1
-        ]  # Reverse the order to maintain chronological order
-        recent_data["ds"] = pd.to_datetime(recent_data["date"])
-        recent_data["y"] = recent_data["total_weight"]
-
-        # Create future dataframe for prediction
-        future = recent_data[["ds", "truck_id"]]
+        X = db_data[["truck_id", "day_of_week", "month", "day_of_year"]]
+        y = db_data["total_weight"]
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
 
         # Make predictions
-        forecast = current_model.predict(future)
+        y_pred = current_model.predict(X_test)
 
-        # Extract actual values and predictions
-        y_true = recent_data["y"]
-        y_pred = forecast["yhat"]
-
-        mse = mean_squared_error(y_true, y_pred)
+        mse = mean_squared_error(y_test, y_pred)
         rmse = np.sqrt(mse)
-        r2 = r2_score(y_true, y_pred)
+        mae = mean_absolute_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
 
         # Log metrics
-        logger.info(f"MSE: {mse}, RMSE: {rmse}, R2: {r2}")
+        logger.info(f"MSE: {mse}, RMSE: {rmse}, MAE: {mae}, R2: {r2}")
 
         with mlflow.start_run():
-            mlflow.log_metrics({"daily_mse": mse, "daily_rmse": rmse, "daily_r2": r2})
+            mlflow.log_metrics(
+                {
+                    "daily_mse": mse,
+                    "daily_rmse": rmse,
+                    "daily_r2": r2,
+                    "daily_mae": mae,
+                }
+            )
 
         logger.info(
             f"Daily evaluation (last 300 samples) - MSE: {mse}, RMSE: {rmse}, R2: {r2}"
