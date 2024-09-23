@@ -1,3 +1,3 @@
 FROM ghcr.io/mlflow/mlflow:v2.16.2
-COPY mlflow_requirements.txt /requirements.txt
+COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt

@@ -16,6 +16,10 @@ MLFLOW_EXPERIMENT_NAME = os.getenv("MLFLOW_EXPERIMENT_NAME", "truck_weight_predi
 MODEL_NAME = os.getenv("MODEL_NAME", "truck_weight_model")
 MODEL_STAGE = os.getenv("MODEL_STAGE", "Production")
 
+DATA_DATABASE_URL = os.getenv(
+    "DATA_DATABASE_URL", "postgresql://data:data@data-db/data"
+)
+
 # Default DAG arguments
 default_args = {
     "owner": "airflow",
