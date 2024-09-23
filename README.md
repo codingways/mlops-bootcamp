@@ -1,8 +1,8 @@
-# Sistema de Predicción de Peso de Camiones
+# Sistema de predicción de peso de residuos en camiones al final del día
 
 ## Justificación del Proyecto
 
-Este proyecto se ha desarrollado como una solución anticipada para un posible proyecto futuro de predicción de peso de camiones, utilizando datos sintéticos debido a la falta de datos históricos reales. Esta decisión se basa en:
+Este proyecto se ha desarrollado como una solución anticipada para un posible proyecto futuro de predicción del peso de residuos que los camiones recolectarán al final de cada día, utilizando datos sintéticos debido a la falta de datos históricos reales. Esta decisión se basa en:
 
 1. Preparación Anticipada: Nos posicionamos para una rápida implementación cuando el proyecto real se materialice.
 2. Prueba de Concepto: Demostramos la viabilidad y el potencial del sistema.
@@ -13,14 +13,14 @@ El sistema está diseñado para adaptarse fácilmente a datos reales cuando est�
 
 ## Descripción del Problema y Objetivos
 
-El proyecto busca predecir el peso total de los camiones para los próximos 30 días, crucial para la planificación logística y la optimización de operaciones de transporte.
+El proyecto busca predecir el peso total de residuos que cada camión recolectará al final del día para los próximos 30 días, crucial para la planificación logística y la optimización de operaciones de recolección de residuos.
 
 ### Objetivos Principales
 
-1. Desarrollar un modelo de aprendizaje automático preciso.
+1. Desarrollar un modelo de aprendizaje automático preciso para predecir el peso de residuos por camión al final del día.
 2. Implementar un pipeline automatizado para procesamiento, entrenamiento y despliegue.
 3. Crear un sistema de monitoreo y reentrenamiento continuo.
-4. Proporcionar una interfaz para acceder y visualizar predicciones.
+4. Proporcionar una interfaz para acceder y visualizar predicciones de peso de residuos.
 
 ## Infraestructura y Arquitectura
 
@@ -55,7 +55,7 @@ Este enfoque es adecuado porque:
 ## Elección de Datos Sintéticos
 
 Los datos sintéticos permiten:
-1. Simular patrones realistas de peso de camiones.
+1. Simular patrones realistas de peso de camiones de residuos.
 2. Crear un conjunto de datos suficiente para entrenamiento y pruebas.
 3. Incorporar variaciones estacionales y eventos especiales.
 4. Controlar las características de los datos para probar diferentes escenarios.
@@ -88,7 +88,7 @@ Servicios principales:
 
 ### Generación de Datos Sintéticos
 
-La generación de datos sintéticos es crucial para este proyecto, ya que simula patrones realistas de peso de camiones en ausencia de datos históricos reales. Esta funcionalidad está implementada en `utils/ml_helpers.py` y tiene en cuenta varios factores para crear un conjunto de datos que refleje la complejidad del mundo real:
+La generación de datos sintéticos es crucial para este proyecto, ya que simula patrones realistas de peso de residuos recolectados por los camiones al final del día, en ausencia de datos históricos reales. Esta funcionalidad está implementada en `utils/ml_helpers.py` y tiene en cuenta varios factores para crear un conjunto de datos que refleje la complejidad del mundo real:
 
 ```python
 def generate_total_weight(truck_id, day_of_week, month, day_of_year):
@@ -117,21 +117,21 @@ def generate_total_weight(truck_id, day_of_week, month, day_of_year):
     return max(500, min(4000, round(base_weight, 2)))
 ```
 
-Los datos sintéticos generados intentan simular varios patrones y factores:
+Los datos sintéticos generados intentan simular varios patrones y factores que afectan el peso de residuos recolectados:
 
-1. **Características del Camión**: Cada camión tiene una capacidad y fiabilidad específica, lo que afecta su peso base.
+1. **Características del Camión**: Cada camión tiene una capacidad y fiabilidad específica, lo que afecta la cantidad de residuos que puede recolectar.
 
-2. **Efecto de Fin de Semana**: Se aplican multiplicadores especiales para los viernes y sábados, simulando posibles cambios en la carga durante los fines de semana.
+2. **Efecto de Fin de Semana**: Se aplican multiplicadores especiales para los viernes y sábados, simulando posibles cambios en la generación de residuos durante los fines de semana.
 
-3. **Efecto Estacional**: Se utiliza una función sinusoidal para simular cambios estacionales en el peso, asumiendo un hemisferio sur (con picos en verano y valles en invierno).
+3. **Efecto Estacional**: Se utiliza una función sinusoidal para simular cambios estacionales en la generación de residuos, asumiendo un hemisferio sur (con picos en verano y valles en invierno).
 
-4. **Variaciones Mensuales**: Cada mes tiene una variación específica que se añade al peso base, reflejando posibles patrones mensuales en la demanda o en las operaciones.
+4. **Variaciones Mensuales**: Cada mes tiene una variación específica que se añade al peso base, reflejando posibles patrones mensuales en la generación de residuos.
 
-5. **Eventos Especiales**: Se incluye un efecto especial para el período navideño (últimos días de diciembre), aplicando multiplicadores que podrían representar un aumento en la carga debido a la temporada festiva.
+5. **Eventos Especiales**: Se incluye un efecto especial para el período navideño (últimos días de diciembre), aplicando multiplicadores que podrían representar un aumento en la generación de residuos debido a la temporada festiva.
 
-6. **Tendencia a Largo Plazo**: Se añade una ligera tendencia al alza a lo largo del año, lo que podría representar un crecimiento gradual en el volumen de carga.
+6. **Tendencia a Largo Plazo**: Se añade una ligera tendencia al alza a lo largo del año, lo que podría representar un crecimiento gradual en la generación de residuos.
 
-7. **Límites Realistas**: El peso final se limita entre 500 y 4000 kg para mantener valores dentro de un rango realista para camiones de carga.
+7. **Límites Realistas**: El peso final se limita entre 500 y 4000 kg para mantener valores dentro de un rango realista para la recolección diaria de residuos por camión.
 
 Esta aproximación a la generación de datos sintéticos permite crear un conjunto de datos que exhibe patrones complejos y realistas, ideal para entrenar y probar el modelo de predicción. Además, proporciona la flexibilidad necesaria para ajustar estos patrones según sea necesario, permitiendo simular diferentes escenarios y probar la robustez del modelo bajo diversas condiciones.
 
@@ -278,4 +278,4 @@ graph TD
 
 ## Conclusión
 
-Este proyecto implementa un sistema completo de predicción de peso de camiones, desde la generación de datos sintéticos hasta la visualización de predicciones, utilizando tecnologías modernas para crear una solución robusta y escalable.
+Este proyecto implementa un sistema completo de predicción del peso de residuos que los camiones recolectarán al final de cada día, desde la generación de datos sintéticos hasta la visualización de predicciones, utilizando tecnologías modernas para crear una solución robusta y escalable.
