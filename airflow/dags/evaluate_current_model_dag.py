@@ -1,21 +1,20 @@
-import io
 import logging
 from datetime import timedelta
 
-import mlflow
 import numpy as np
 import pandas as pd
 from airflow.operators.python import PythonOperator
 from config import (
-    AWS_S3_BUCKET,
+    DATA_DATABASE_URL,
     MLFLOW_TRACKING_URI,
     MODEL_NAME,
     MODEL_STAGE,
     default_args,
 )
 from sklearn.metrics import mean_squared_error, r2_score
-from utils.s3_helpers import load_data_from_s3
+from sqlalchemy import create_engine
 
+import mlflow
 from airflow import DAG
 
 np.float_ = np.float64
@@ -33,14 +32,15 @@ def evaluate_current_model(**kwargs):
         mlflow.set_experiment("Model Evaluation")
         current_model = mlflow.prophet.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
 
-        # Load accumulated data
-        parquet_data = load_data_from_s3(AWS_S3_BUCKET, "accumulated_data.parquet")
-        accumulated_data = pd.read_parquet(io.BytesIO(parquet_data))
-
-        # Get the last 300 samples
-        recent_data = accumulated_data.iloc[-300:]
+        engine = create_engine(DATA_DATABASE_URL)
+        with engine.connect() as conn:
+            query = "SELECT * FROM raw_data ORDER BY date DESC LIMIT 300"
+            accumulated_data = pd.read_sql(query, conn)
 
         # Prepare data for Prophet
+        recent_data = accumulated_data.iloc[
+            ::-1
+        ]  # Reverse the order to maintain chronological order
         recent_data["ds"] = pd.to_datetime(recent_data["date"])
         recent_data["y"] = recent_data["total_weight"]
 
@@ -57,7 +57,9 @@ def evaluate_current_model(**kwargs):
         mse = mean_squared_error(y_true, y_pred)
         rmse = np.sqrt(mse)
         r2 = r2_score(y_true, y_pred)
-        print(f"MSE: {mse}, RMSE: {rmse}, R2: {r2}")
+
+        # Log metrics
+        logger.info(f"MSE: {mse}, RMSE: {rmse}, R2: {r2}")
 
         with mlflow.start_run():
             mlflow.log_metrics({"daily_mse": mse, "daily_rmse": rmse, "daily_r2": r2})
@@ -65,8 +67,11 @@ def evaluate_current_model(**kwargs):
         logger.info(
             f"Daily evaluation (last 300 samples) - MSE: {mse}, RMSE: {rmse}, R2: {r2}"
         )
+    except mlflow.exceptions.MlflowException as e:
+        logger.error(f"MLflow error in model evaluation: {str(e)}")
+        raise
     except Exception as e:
-        logger.error(f"Error in model evaluation: {str(e)}")
+        logger.error(f"General error in model evaluation: {str(e)}")
         raise
 
 

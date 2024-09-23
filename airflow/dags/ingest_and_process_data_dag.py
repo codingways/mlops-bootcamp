@@ -1,17 +1,16 @@
-import io
 import json
 import logging
 from datetime import timedelta
 
-import mlflow
 import pandas as pd
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from config import AWS_S3_BUCKET, MODEL_NAME, MODEL_STAGE, default_args
+from config import DATA_DATABASE_URL, MODEL_NAME, MODEL_STAGE, default_args
+from sqlalchemy import create_engine
 from utils.ml_helpers import check_data_drift, generate_sample_data
-from utils.s3_helpers import load_data_from_s3, save_data_to_s3
 
+import mlflow
 from airflow import DAG
 
 logging.basicConfig(
@@ -20,45 +19,63 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def postgres_upsert(table, conn, keys, data_iter):
+    from sqlalchemy.dialects.postgresql import insert
+
+    # Convert data_iter to a list of dictionaries
+    data = [dict(zip(keys, row)) for row in data_iter]
+
+    # Remove duplicates based on composite keys (date and truck_id)
+    unique_data = list({(row["date"], row["truck_id"]): row for row in data}.values())
+
+    insert_statement = insert(table.table).values(unique_data)
+    upsert_statement = insert_statement.on_conflict_do_update(
+        constraint="raw_data_truck_id_date_key",
+        set_={c.key: c for c in insert_statement.excluded},
+    )
+    conn.execute(upsert_statement)
+
+
 def ingest_and_process_data(**kwargs):
     try:
-        # Generar datos para el día actual
-        new_data = generate_sample_data()
+        engine = create_engine(DATA_DATABASE_URL)
+        with engine.connect() as conn:
+            db_data = pd.read_sql("SELECT * FROM raw_data", conn)
 
-        try:
-            parquet_data = load_data_from_s3(AWS_S3_BUCKET, "accumulated_data.parquet")
-            accumulated_data = pd.read_parquet(io.BytesIO(parquet_data))
+        db_data.drop(columns=["id"], inplace=True)
 
-            # Verificar data drift
-            if not accumulated_data.empty:
-                drift_detected, drift_report = check_data_drift(
-                    new_data, accumulated_data
+        if db_data.empty:
+            logger.info("Initializing historical data")
+            new_data = generate_sample_data(num_days=365)
+        else:
+            day_data = generate_sample_data()
+            drift_detected, drift_report = check_data_drift(day_data, db_data)
+            if drift_detected:
+                logger.warning(
+                    f"Data drift detected: {json.dumps(drift_report, indent=2)}"
                 )
-                if drift_detected:
-                    logger.warning(
-                        f"Data drift detected: {json.dumps(drift_report, indent=2)}"
-                    )
-                    # Aquí podrías implementar lógica adicional, como enviar alertas
-
-            # Agregar nuevos datos
-            accumulated_data = pd.concat(
-                [accumulated_data, new_data], ignore_index=True
+                # TODO: Implement logic to handle data drift
+            new_data = (
+                pd.concat([db_data, day_data], ignore_index=True)
+                if not day_data.empty
+                else db_data
             )
-        except Exception as e:
-            logger.warning(f"Error al cargar datos acumulados existentes: {str(e)}")
-            logger.info("Iniciando con un DataFrame vacío para datos acumulados.")
-            accumulated_data = generate_sample_data(num_days=365)
 
-        # Guardar datos acumulados
-        save_data_to_s3(
-            accumulated_data.to_parquet(), AWS_S3_BUCKET, "accumulated_data.parquet"
-        )
+        # Save accumulated data
+        with engine.connect() as conn:
+            new_data.to_sql(
+                "raw_data",
+                conn,
+                if_exists="append",
+                index=False,
+                method=postgres_upsert,
+            )
 
         logger.info(
-            f"Processed and accumulated {len(new_data)} new records. Total records: {len(accumulated_data)}"
+            f"Processed and accumulated {len(new_data)} new records. Total records: {len(new_data)}"
         )
     except Exception as e:
-        logger.error(f"Error in data ingestion and processing: {str(e)}")
+        logger.error(f"Error in data ingestion and processing: {str(e)}", exc_info=True)
         raise
 
 

@@ -1,12 +1,10 @@
-import io
 import logging
 
-import mlflow
 import numpy as np
 import pandas as pd
 from airflow.operators.python import PythonOperator
 from config import (
-    AWS_S3_BUCKET,
+    DATA_DATABASE_URL,
     MLFLOW_TRACKING_URI,
     MODEL_NAME,
     MODEL_STAGE,
@@ -15,8 +13,9 @@ from config import (
 from mlflow.exceptions import MlflowException
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
-from utils.s3_helpers import load_data_from_s3
+from sqlalchemy import create_engine
 
+import mlflow
 from airflow import DAG
 
 np.float_ = np.float64
@@ -32,14 +31,14 @@ mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 def retrain_and_deploy(**kwargs):
     try:
-        # Load accumulated data
-        parquet_data = load_data_from_s3(AWS_S3_BUCKET, "accumulated_data.parquet")
-        data = pd.read_parquet(io.BytesIO(parquet_data))
+        engine = create_engine(DATA_DATABASE_URL)
+        with engine.connect() as conn:
+            db_data = pd.read_sql("SELECT * FROM raw_data", conn)
 
         # Prepare data for Prophet
-        data["ds"] = pd.to_datetime(data["date"])  # Assuming 'date' column exists
-        data["y"] = data["total_weight"]
-        prophet_data = data[["ds", "y", "truck_id"]]
+        db_data["ds"] = pd.to_datetime(db_data["date"])
+        db_data["y"] = db_data["total_weight"]
+        prophet_data = db_data[["ds", "y", "truck_id"]]
 
         # Split data
         train_data, test_data = train_test_split(
@@ -56,7 +55,7 @@ def retrain_and_deploy(**kwargs):
             model.fit(train_data)
 
             # Evaluate
-            future = test_data[["ds"]].copy()  # Usar las fechas de test_data
+            future = test_data[["ds"]].copy()  # Use dates from test_data
             future["truck_id"] = test_data["truck_id"].values
             forecast = model.predict(future)
             y_pred = forecast["yhat"]
@@ -69,7 +68,7 @@ def retrain_and_deploy(**kwargs):
 
             mlflow.log_metrics({"mse": mse, "r2": r2, "rmse": rmse, "mae": mae})
 
-            # Verificar si el modelo registrado existe, si no, crearlo
+            # Check if the registered model exists, if not, create it
             client = mlflow.tracking.MlflowClient()
             try:
                 client.get_registered_model(MODEL_NAME)
@@ -77,18 +76,18 @@ def retrain_and_deploy(**kwargs):
                 client.create_registered_model(MODEL_NAME)
                 logger.info(f"Created new registered model: {MODEL_NAME}")
 
-            # Inferir la firma del modelo
-            # Registrar el modelo con firma y ejemplo de entrada
+            # Infer model signature
+            # Register the model with signature and input example
             mlflow.prophet.log_model(model, "model", registered_model_name=MODEL_NAME)
 
-            # Crear nueva versión del modelo
+            # Create new model version
             new_model_version = client.create_model_version(
                 name=MODEL_NAME,
                 source=f"runs:/{mlflow.active_run().info.run_id}/model",
                 run_id=mlflow.active_run().info.run_id,
             )
 
-            # Transición a la etapa de producción
+            # Transition to production stage
             client.transition_model_version_stage(
                 name=MODEL_NAME, version=new_model_version.version, stage=MODEL_STAGE
             )
@@ -96,8 +95,11 @@ def retrain_and_deploy(**kwargs):
                 f"New model deployed to production. Version: {new_model_version.version}"
             )
 
+    except MlflowException as e:
+        logger.error(f"MlflowException in model retraining and deployment: {str(e)}")
+        raise
     except Exception as e:
-        logger.error(f"Error in model retraining and deployment: {str(e)}")
+        logger.error(f"Unexpected error in model retraining and deployment: {str(e)}")
         raise
 
 

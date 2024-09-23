@@ -1,19 +1,16 @@
-import io
 import logging
 from datetime import timedelta
 
 import pandas as pd
 from airflow.operators.python import PythonOperator
 from config import (
-    AWS_S3_BUCKET,
     DATA_DATABASE_URL,
     MLFLOW_TRACKING_URI,
     MODEL_NAME,
     MODEL_STAGE,
     default_args,
 )
-from sqlalchemy import MetaData, Table, create_engine
-from utils.s3_helpers import load_data_from_s3
+from sqlalchemy import create_engine
 
 import mlflow
 from airflow import DAG
@@ -29,14 +26,32 @@ logger = logging.getLogger(__name__)
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 
+def postgres_upsert(table, conn, keys, data_iter):
+    from sqlalchemy.dialects.postgresql import insert
+
+    # Convert data_iter to a list of dictionaries
+    data = [dict(zip(keys, row)) for row in data_iter]
+
+    # Remove duplicates based on composite keys (date and truck_id)
+    unique_data = list({(row["date"], row["truck_id"]): row for row in data}.values())
+
+    insert_statement = insert(table.table).values(unique_data)
+    upsert_statement = insert_statement.on_conflict_do_update(
+        constraint="predictions_truck_id_date_key",  # Changed to handle composite key
+        set_={c.key: c for c in insert_statement.excluded},
+    )
+    conn.execute(upsert_statement)
+
+
 def generate_future_predictions(**kwargs):
     try:
         # Load the current model
         current_model = mlflow.prophet.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
 
-        # Load accumulated data from S3
-        parquet_data = load_data_from_s3(AWS_S3_BUCKET, "accumulated_data.parquet")
-        accumulated_data = pd.read_parquet(io.BytesIO(parquet_data))
+        # Load accumulated data from PostgreSQL
+        engine = create_engine(DATA_DATABASE_URL)
+        with engine.connect() as conn:
+            accumulated_data = pd.read_sql("SELECT * FROM raw_data", conn)
 
         # Prepare data for Prophet
         accumulated_data["ds"] = pd.to_datetime(accumulated_data["date"])
@@ -70,17 +85,26 @@ def generate_future_predictions(**kwargs):
         ]
 
         # Connect to the database and insert predictions
-        with create_engine(DATA_DATABASE_URL).connect() as conn:
-            metadata = MetaData()
-            predictions_table = Table("predictions", metadata, autoload_with=conn)
-            conn.execute(predictions_table.delete())
-            predictions.to_sql("predictions", conn, if_exists="append", index=False)
+        with engine.connect() as conn:
+            predictions.to_sql(
+                "predictions",
+                conn,
+                if_exists="append",
+                index=False,
+                method=postgres_upsert,
+            )
 
         logger.info(
             "Generated and saved predictions for the next 30 days to the database"
         )
+    except mlflow.exceptions.MlflowException as e:
+        logger.error(f"MLflow error in generating future predictions: {str(e)}")
+        raise
+    except pd.errors.EmptyDataError as e:
+        logger.error(f"Empty data error in generating future predictions: {str(e)}")
+        raise
     except Exception as e:
-        logger.error(f"Error in generating future predictions: {str(e)}")
+        logger.error(f"Unexpected error in generating future predictions: {str(e)}")
         raise
 
 
