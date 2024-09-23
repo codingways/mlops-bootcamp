@@ -1,140 +1,150 @@
 # Sistema de Predicción de Peso de Camiones
 
+## Justificación del Proyecto
+
+Este proyecto se ha desarrollado como una solución anticipada para un posible proyecto futuro de predicción de peso de camiones, utilizando datos sintéticos debido a la falta de datos históricos reales. Esta decisión se basa en:
+
+1. Preparación Anticipada: Nos posicionamos para una rápida implementación cuando el proyecto real se materialice.
+2. Prueba de Concepto: Demostramos la viabilidad y el potencial del sistema.
+3. Desarrollo Iterativo: Permite mejorar continuamente sin las limitaciones de datos reales incompletos.
+4. Flexibilidad en el Diseño: Creamos un sistema adaptable a diferentes escenarios potenciales.
+
+El sistema está diseñado para adaptarse fácilmente a datos reales cuando estén disponibles.
+
 ## Descripción del Problema y Objetivos
 
-Este proyecto tiene como objetivo resolver el desafío de predecir el peso total de los camiones para los próximos 30 días. Esta predicción es crucial para la planificación logística, la asignación de recursos y la optimización de las operaciones de transporte.
+El proyecto busca predecir el peso total de los camiones para los próximos 30 días, crucial para la planificación logística y la optimización de operaciones de transporte.
 
 ### Objetivos Principales
 
-1. Desarrollar un modelo de aprendizaje automático para predecir con precisión los pesos de los camiones.
-2. Implementar un pipeline automatizado para el procesamiento de datos, entrenamiento de modelos y despliegue.
-3. Crear un sistema para el monitoreo continuo y reentrenamiento del modelo para mantener su precisión a lo largo del tiempo.
-4. Proporcionar una interfaz fácil de usar para acceder y visualizar las predicciones.
+1. Desarrollar un modelo de aprendizaje automático preciso.
+2. Implementar un pipeline automatizado para procesamiento, entrenamiento y despliegue.
+3. Crear un sistema de monitoreo y reentrenamiento continuo.
+4. Proporcionar una interfaz para acceder y visualizar predicciones.
 
 ## Infraestructura y Arquitectura
 
-### Almacenamiento y Procesamiento de Datos
-
-- Base de datos PostgreSQL para almacenar datos brutos y predicciones
-- SQLAlchemy ORM para interacciones con la base de datos
-
-### Desarrollo y Experimentación de Modelos
-
-- MLflow para el seguimiento de experimentos y versionado de modelos
-- XGBoost como el algoritmo principal de aprendizaje automático
-
-### Orquestación y Automatización
-
-- Apache Airflow para la orquestación de flujos de trabajo
-- DAGs (Grafos Acíclicos Dirigidos) para definir y gestionar tareas
-
-### Despliegue
-
-- Docker para la contenerización de servicios
-- Docker Compose para el despliegue de aplicaciones multi-contenedor
-
-### API y Frontend
-
-- FastAPI para crear una API RESTful que sirva las predicciones
-- Vue.js para construir un frontend interactivo para visualizar las predicciones
+- Almacenamiento: PostgreSQL con SQLAlchemy ORM
+- Desarrollo de Modelos: MLflow y XGBoost
+- Orquestación: Apache Airflow con DAGs
+- Despliegue: Docker y Docker Compose
+- API: FastAPI
+- Frontend: Vue.js
 
 ## Tipo de Despliegue: Procesamiento por Lotes
 
-El sistema utiliza un enfoque de procesamiento por lotes para generar predicciones:
+El sistema genera predicciones en lote:
 
-1. El modelo se entrena con datos históricos.
-2. Las predicciones para los próximos 30 días se generan en lote.
-3. Estas predicciones se almacenan en la base de datos.
-4. La API sirve estas predicciones pre-calculadas.
+1. Entrenamiento con datos históricos.
+2. Generación de predicciones para 30 días.
+3. Almacenamiento en base de datos.
+4. API sirve predicciones pre-calculadas.
 
-Este enfoque es adecuado para nuestro caso de uso ya que:
-
-- Las predicciones de peso de los camiones no requieren actualizaciones en tiempo real.
-- El procesamiento por lotes permite un uso eficiente de los recursos computacionales.
-- Las predicciones pre-calculadas aseguran tiempos de respuesta rápidos para la API.
+Este enfoque es adecuado porque:
+- No requiere actualizaciones en tiempo real.
+- Permite uso eficiente de recursos computacionales.
+- Asegura tiempos de respuesta rápidos.
 
 ## Monitoreo y Reentrenamiento Automatizado
 
-### Monitoreo de Rendimiento
+- Evaluación diaria del rendimiento (R²)
+- Registro de métricas con MLflow
+- DAGs para decisión y ejecución de reentrenamiento
+- Reentrenamiento automático si R² < 0.9 durante más de 3 días en una semana
 
-- Evaluación diaria del rendimiento del modelo utilizando la puntuación R²
-- Registro de métricas de rendimiento utilizando MLflow
+## Elección de Datos Sintéticos
 
-### Reentrenamiento Automatizado
+Los datos sintéticos permiten:
+1. Simular patrones realistas de peso de camiones.
+2. Crear un conjunto de datos suficiente para entrenamiento y pruebas.
+3. Incorporar variaciones estacionales y eventos especiales.
+4. Controlar las características de los datos para probar diferentes escenarios.
 
-Dos DAGs principales manejan el proceso de reentrenamiento:
+## Áreas de Mejora
 
-1. `retraining_decision_dag`: Verifica el rendimiento del modelo diariamente y activa el reentrenamiento si es necesario.
-2. `model_retraining_deployment_dag`: Maneja el reentrenamiento real y el despliegue del nuevo modelo.
-
-El sistema activa automáticamente el reentrenamiento si el rendimiento del modelo cae por debajo de un cierto umbral (R² < 0.9) durante más de 3 días en una semana.
+1. Uso de datos reales
+2. Técnicas avanzadas de feature engineering
+3. Experimentación con modelos más sofisticados
+4. Sistema de monitoreo más robusto
+5. Optimización del rendimiento
+6. Refuerzo de seguridad y cumplimiento normativo
+7. Mejora de escalabilidad
+8. Interfaz de usuario más avanzada
+9. Integración con sistemas externos
+10. Pruebas más exhaustivas
 
 ## Detalles de la Implementación
 
 ### Docker Compose
 
-El archivo `docker-compose.yaml` define todos los servicios necesarios para el proyecto. Aquí está un resumen de los servicios principales con sus puertos correspondientes:
-
-1. `data-db`: Base de datos PostgreSQL para almacenar datos brutos y predicciones.
-2. `airflow-db`: Base de datos PostgreSQL para Airflow.
-3. `redis`: Utilizado por Airflow como backend de resultados.
-4. `airflow-webserver`: Puerto 8080 - Interfaz web de Airflow.
-5. `airflow-scheduler`, `airflow-worker`, `airflow-triggerer`: Componentes de Apache Airflow.
-6. `mlflow-db`: Base de datos PostgreSQL para MLflow.
-7. `mlflow`: Puerto 5000 - Servidor MLflow para el seguimiento de experimentos y registro de modelos.
-8. `minio`: Puertos 9000 (API) y 9001 (Console) - Almacenamiento de objetos compatible con S3 para artefactos de MLflow.
-9. `predictions-api`: Puerto 8000 - API FastAPI para servir predicciones.
-10. `predictions-api-consumer`: Puerto 8001 - Frontend Vue.js para visualizar predicciones.
-
-Cada servicio está configurado con sus propias variables de entorno, volúmenes y dependencias.
+Servicios principales:
+- Bases de datos (data-db, airflow-db, mlflow-db)
+- Redis
+- Airflow (webserver, scheduler, worker, triggerer)
+- MLflow
+- MinIO
+- API de predicciones
+- Frontend
 
 ### Generación de Datos Sintéticos
 
-Los datos utilizados en este proyecto son sintéticos y se generan para simular patrones realistas. El script `utils/ml_helpers.py` contiene la lógica para generar estos datos:
+La generación de datos sintéticos es crucial para este proyecto, ya que simula patrones realistas de peso de camiones en ausencia de datos históricos reales. Esta funcionalidad está implementada en `utils/ml_helpers.py` y tiene en cuenta varios factores para crear un conjunto de datos que refleje la complejidad del mundo real:
 
 ```python
-def get_or_create_random_values(trucks=10):
-    try:
-        random_values = load_data_from_s3(AWS_S3_BUCKET, "random_values.json")
-        random_values = json.loads(random_values)
-    except (json.JSONDecodeError, Exception):
-        random_values = {
-            "truck_capacities": np.random.uniform(1500, 3000, trucks).tolist(),
-            "truck_reliability": np.random.uniform(0.8, 1.2, trucks).tolist(),
-            # Sábado y domingo
-            "weekend_multipliers": np.random.uniform(1.1, 1.2, 2).tolist(),
-            "monthly_variations": np.random.normal(0, 100, 12).tolist(),  # Una por mes
-            # Para los últimos 15 días del año
-            "christmas_multipliers": np.random.uniform(1.2, 1.4, 15).tolist(),
-        }
-        save_data_to_s3(json.dumps(random_values), AWS_S3_BUCKET, "random_values.json")
+def generate_total_weight(truck_id, day_of_week, month, day_of_year):
+    base_weight = truck_capacities[truck_id - 1] * truck_reliability[truck_id - 1]
 
-    return random_values
+    # Weekend effect
+    if day_of_week in [5, 6]:
+        base_weight *= weekend_multipliers[day_of_week - 5]
+
+    # Seasonal effect (assuming Southern Hemisphere)
+    season_effect = np.sin(2 * np.pi * day_of_year / 365) * 200 + 200
+    base_weight += season_effect
+
+    # Monthly variation
+    base_weight += monthly_variations[month - 1]
+
+    # Special events (e.g., holidays)
+    if month == 12 and day_of_year >= 350:  # Christmas period
+        base_weight *= christmas_multipliers[day_of_year - 350 - 1]
+
+    # Long-term trend (slight increase over time)
+    trend = day_of_year * 0.5
+    base_weight += trend
+
+    # Ensure weight is between 500 and 4000 kg
+    return max(500, min(4000, round(base_weight, 2)))
 ```
 
-Este código genera valores aleatorios para:
-- Capacidades de los camiones
-- Fiabilidad de los camiones
-- Multiplicadores para fines de semana
-- Variaciones mensuales
-- Multiplicadores para la temporada navideña
+Los datos sintéticos generados intentan simular varios patrones y factores:
 
-Estos valores se utilizan luego para generar datos que simulan patrones realistas, incluyendo:
-- Diferencias entre camiones individuales
-- Aumento de peso en fines de semana
-- Variaciones estacionales
-- Aumento significativo durante la temporada navideña y de fin de año
+1. **Características del Camión**: Cada camión tiene una capacidad y fiabilidad específica, lo que afecta su peso base.
+
+2. **Efecto de Fin de Semana**: Se aplican multiplicadores especiales para los viernes y sábados, simulando posibles cambios en la carga durante los fines de semana.
+
+3. **Efecto Estacional**: Se utiliza una función sinusoidal para simular cambios estacionales en el peso, asumiendo un hemisferio sur (con picos en verano y valles en invierno).
+
+4. **Variaciones Mensuales**: Cada mes tiene una variación específica que se añade al peso base, reflejando posibles patrones mensuales en la demanda o en las operaciones.
+
+5. **Eventos Especiales**: Se incluye un efecto especial para el período navideño (últimos días de diciembre), aplicando multiplicadores que podrían representar un aumento en la carga debido a la temporada festiva.
+
+6. **Tendencia a Largo Plazo**: Se añade una ligera tendencia al alza a lo largo del año, lo que podría representar un crecimiento gradual en el volumen de carga.
+
+7. **Límites Realistas**: El peso final se limita entre 500 y 4000 kg para mantener valores dentro de un rango realista para camiones de carga.
+
+Esta aproximación a la generación de datos sintéticos permite crear un conjunto de datos que exhibe patrones complejos y realistas, ideal para entrenar y probar el modelo de predicción. Además, proporciona la flexibilidad necesaria para ajustar estos patrones según sea necesario, permitiendo simular diferentes escenarios y probar la robustez del modelo bajo diversas condiciones.
 
 ### DAGs de Airflow
 
-1. `ingest_and_process_data_dag.py`: Ingesta y procesa datos diariamente, detecta drift de datos y activa reentrenamiento si es necesario.
-2. `predictor_dag.py`: Genera predicciones diarias para los próximos 30 días utilizando el modelo actual.
-3. `retraining_decision_dag.py`: Evalúa el rendimiento del modelo y decide si se necesita reentrenamiento.
-4. `model_retraining_deployment_dag.py`: Realiza el reentrenamiento del modelo y lo despliega si es necesario.
+1. `ingest_and_process_data_dag.py`: Ingesta y procesamiento diario
+2. `predictor_dag.py`: Generación de predicciones
+3. `retraining_decision_dag.py`: Evaluación de rendimiento
+4. `model_retraining_deployment_dag.py`: Reentrenamiento y despliegue
 
 ### API de Predicciones
 
-La API de predicciones está implementada utilizando FastAPI y se encuentra en el archivo `predictions_api/main.py`. Esta API lee las predicciones generadas por el `predictor_dag` y las sirve a través de un endpoint REST.
+La API de predicciones está implementada utilizando FastAPI en `predictions_api/main.py`. Actualmente, la API ofrece un único endpoint que devuelve las predicciones para todos los camiones en los próximos 30 días:
 
 ```python
 @app.get("/predictions", response_model=list[PredictionResponse])
@@ -150,11 +160,53 @@ async def get_predictions():
         db.close()
 ```
 
-Este endpoint devuelve las predicciones para los próximos 30 días, que se generan y almacenan en la base de datos `data-db`.
+Este endpoint proporciona una vista general de todas las predicciones disponibles. Sin embargo, en futuras iteraciones, la API podría mejorarse para soportar consultas más específicas y flexibles. Algunas posibles mejoras incluyen:
+
+1. Filtrado por camión: Permitir a los usuarios obtener predicciones para camiones específicos.
+2. Filtrado por fecha: Habilitar la consulta de predicciones para rangos de fechas personalizados.
+3. Paginación: Implementar paginación para manejar grandes volúmenes de datos de manera más eficiente.
+4. Ordenamiento: Permitir a los usuarios ordenar los resultados por diferentes criterios (por ejemplo, fecha, peso predicho, ID del camión).
+5. Agregaciones: Ofrecer endpoints para obtener estadísticas agregadas, como el peso total predicho por día o por camión.
+
+Ejemplo de un posible endpoint futuro con filtros:
+
+```python
+@app.get("/predictions/filtered", response_model=list[PredictionResponse])
+async def get_filtered_predictions(
+    start_date: date = Query(None),
+    end_date: date = Query(None),
+    truck_id: int = Query(None),
+    limit: int = Query(100, le=1000),
+    offset: int = Query(0, ge=0)
+):
+    db = SessionLocal()
+    try:
+        query = db.query(Prediction)
+        if start_date:
+            query = query.filter(Prediction.date >= start_date)
+        if end_date:
+            query = query.filter(Prediction.date <= end_date)
+        if truck_id:
+            query = query.filter(Prediction.truck_id == truck_id)
+        
+        total = query.count()
+        predictions = query.offset(offset).limit(limit).all()
+        
+        return {
+            "total": total,
+            "predictions": predictions
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+```
+
+Estas mejoras permitirían a los usuarios de la API obtener datos más específicos y relevantes para sus necesidades, mejorando la utilidad y flexibilidad del sistema de predicción.
 
 ### Base de Datos data-db
 
-La base de datos `data-db` se utiliza tanto para almacenar los datos brutos (`raw_data`) como las predicciones generadas. Los scripts de inicialización en la carpeta `init-scripts` crean las tablas necesarias:
+Almacena datos brutos y predicciones con tablas optimizadas e indexadas:
 
 ```sql
 CREATE TABLE IF NOT EXISTS raw_data (
@@ -165,36 +217,16 @@ CREATE TABLE IF NOT EXISTS raw_data (
     day_of_week INTEGER,
     month INTEGER,
     day_of_year INTEGER,
-    UNIQUE (truck_id, date)  -- Agregar restricción de clave única
+    UNIQUE (truck_id, date)
 );
 
 CREATE INDEX idx_raw_data_truck_id ON raw_data(truck_id);
 CREATE INDEX idx_raw_data_date ON raw_data(date);
 ```
 
-```sql
-CREATE TABLE IF NOT EXISTS predictions (
-    id BIGSERIAL PRIMARY KEY,
-    date DATE,
-    truck_id INTEGER,
-    predicted_weight FLOAT,
-    UNIQUE (truck_id, date)  -- Agregar restricción de clave única
-);
-
-CREATE INDEX idx_predictions_truck_id ON predictions(truck_id);
-CREATE INDEX idx_predictions_date ON predictions(date);
-```
-
-Estas tablas están diseñadas con índices para optimizar las consultas y restricciones de unicidad para evitar duplicados.
-
 ### Tests
 
-Los tests se ejecutan como parte del pipeline de CI/CD definido en `.github/workflows/ci.yml`. Los principales pasos de testing incluyen:
-
-1. Formateo de código con Black
-2. Linting con flake8
-3. Verificación de integridad de los DAGs de Airflow
-4. Ejecución de pruebas unitarias con pytest
+Incluidos en el pipeline CI/CD:
 
 ```yaml
     - name: Format with Black
@@ -210,8 +242,6 @@ Los tests se ejecutan como parte del pipeline de CI/CD definido en `.github/work
     - name: Run pytest
       run: pytest
 ```
-
-Estos tests aseguran que el código esté formateado correctamente, libre de errores de sintaxis, y que los DAGs de Airflow sean válidos.
 
 ## Diagrama de Arquitectura
 
@@ -246,8 +276,6 @@ graph TD
     O[Redis] -->|Resultados| C    
 ```
 
-Este diagrama muestra cómo los diferentes componentes del sistema interactúan entre sí, incluyendo los DAGs de Airflow, las bases de datos, MLflow, y los servicios de frontend y backend.
-
 ## Conclusión
 
-Este proyecto implementa un sistema completo de predicción de peso de camiones, desde la generación de datos sintéticos hasta la visualización de predicciones, pasando por el entrenamiento de modelos, monitoreo de rendimiento y reentrenamiento automático. Utiliza tecnologías modernas como Docker, Airflow, MLflow y FastAPI para crear una solución robusta y escalable.
+Este proyecto implementa un sistema completo de predicción de peso de camiones, desde la generación de datos sintéticos hasta la visualización de predicciones, utilizando tecnologías modernas para crear una solución robusta y escalable.
